@@ -2,21 +2,17 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import { projects } from "./projects.js";
-
-const wrap = document.getElementById("viewer");
-const canvas = document.getElementById("viewer-canvas");
-const titleEl = document.getElementById("viewer-title");
-const statsEl = document.getElementById("viewer-stats");
-const linkEl = document.getElementById("viewer-link");
-if (wrap && canvas) start();
-
-function start() {
+/**
+ * Interactive 3D project viewer.
+ * Returns an API ({ showProject, loadFile, setWireframe, setAutoRotate, reset, dispose })
+ * or null if WebGL is unavailable. Text output goes through onTitle / onStats.
+ */
+export function createViewer({ canvas, wrap, onTitle, onStats }) {
   let renderer;
   try {
     renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   } catch {
-    return;
+    return null;
   }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -25,7 +21,8 @@ function start() {
 
   const scene = new THREE.Scene();
   const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  const envTarget = pmrem.fromScene(new RoomEnvironment(), 0.04);
+  scene.environment = envTarget.texture;
   scene.environmentIntensity = 0.35;
 
   const camera = new THREE.PerspectiveCamera(35, 1, 0.01, 200);
@@ -289,7 +286,7 @@ function start() {
       verts += g.attributes.position.count * n;
       tris += (g.index ? g.index.count / 3 : g.attributes.position.count / 3) * n;
     });
-    statsEl.textContent = `${Math.round(tris).toLocaleString()} tris · ${verts.toLocaleString()} verts · drag to orbit`;
+    onStats(`${Math.round(tris).toLocaleString()} tris · ${verts.toLocaleString()} verts · drag to orbit`);
   }
 
   function applyWire(obj) {
@@ -314,15 +311,20 @@ function start() {
     scene.add(entry.object);
     applyWire(entry.object);
     stats(entry.object);
-    titleEl.textContent = title;
+    onTitle(title);
   }
 
   const gltfLoader = new GLTFLoader();
-  function loadGLTF(url, title) {
-    titleEl.textContent = "Loading…";
+  let loadToken = 0;   // ignore stale loads if the user switches quickly
+  let destroyed = false;
+  function loadGLTF(url, title, onDone) {
+    const token = ++loadToken;
+    onTitle("Loading…");
     gltfLoader.load(
       url,
       (gltf) => {
+        onDone?.();
+        if (destroyed || token !== loadToken) return;
         const obj = gltf.scene;
         // centre and fit into a ~2.6 unit sphere
         const box = new THREE.Box3().setFromObject(obj);
@@ -339,77 +341,33 @@ function start() {
       },
       undefined,
       (err) => {
+        onDone?.();
+        if (destroyed || token !== loadToken) return;
         console.error(err);
-        titleEl.textContent = "Couldn't load model — check the path";
+        onTitle("Couldn't load model — check the path");
       }
     );
   }
 
-  function openProject(i) {
-    const p = projects[i];
-    document.querySelectorAll(".card").forEach((c) => c.classList.toggle("active", +c.dataset.index === i));
-    if (p.model) loadGLTF(p.model, p.title);
-    else setModel(builders[p.placeholder || "neural"](), `${p.title} — 3D visual`);
-    if (linkEl) { linkEl.hidden = !p.link; if (p.link) linkEl.href = p.link; }
-    controls.autoRotate = true;
-    document.querySelector('[data-action="rotate"]').classList.add("on");
-  }
-
-  document.getElementById("projects").addEventListener("click", (e) => {
-    const card = e.target.closest(".card");
-    if (card) openProject(+card.dataset.index);
-  });
-
-  // ---------- toolbar ----------
-  wrap.querySelector(".viewer-actions").addEventListener("click", (e) => {
-    const btn = e.target.closest("button");
-    if (!btn) return;
-    const action = btn.dataset.action;
-    if (action === "wire") {
-      wireframe = !wireframe;
-      btn.classList.toggle("on", wireframe);
-      if (current) applyWire(current.object);
-    } else if (action === "rotate") {
-      controls.autoRotate = !controls.autoRotate;
-      btn.classList.toggle("on", controls.autoRotate);
-    } else if (action === "reset") {
-      camera.position.copy(HOME);
-      controls.target.set(0, 0, 0);
-    }
-  });
-
-  // ---------- drag & drop your own .glb ----------
-  ["dragenter", "dragover"].forEach((ev) =>
-    wrap.addEventListener(ev, (e) => { e.preventDefault(); wrap.classList.add("dragging"); })
-  );
-  ["dragleave", "drop"].forEach((ev) =>
-    wrap.addEventListener(ev, (e) => { e.preventDefault(); wrap.classList.remove("dragging"); })
-  );
-  wrap.addEventListener("drop", (e) => {
-    const file = e.dataTransfer.files[0];
-    if (!file) return;
-    if (!/\.(glb|gltf)$/i.test(file.name)) { titleEl.textContent = "Only .glb / .gltf files"; return; }
-    document.querySelectorAll(".card").forEach((c) => c.classList.remove("active"));
-    if (linkEl) linkEl.hidden = true;
-    loadGLTF(URL.createObjectURL(file), file.name);
-  });
-
   // ---------- sizing & loop (only renders while on screen) ----------
   function resize() {
     const w = wrap.clientWidth, h = wrap.clientHeight;
+    if (!w || !h) return;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   }
-  new ResizeObserver(resize).observe(wrap);
+  const ro = new ResizeObserver(resize);
+  ro.observe(wrap);
 
   let visible = false;
-  new IntersectionObserver(([e]) => { visible = e.isIntersecting; }).observe(wrap);
+  const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; });
+  io.observe(wrap);
 
   const clock = new THREE.Clock();
-  let t = 0;
+  let t = 0, raf = 0;
   function loop() {
-    requestAnimationFrame(loop);
+    raf = requestAnimationFrame(loop);
     const dt = Math.min(clock.getDelta(), 0.1);
     if (!visible) return;
     t += dt;
@@ -419,6 +377,40 @@ function start() {
   }
 
   resize();
-  openProject(0);
   loop();
+
+  return {
+    showProject(p) {
+      if (p.model) loadGLTF(p.model, p.title);
+      else { loadToken++; setModel(builders[p.placeholder || "neural"](), `${p.title} — 3D visual`); }
+    },
+    loadFile(file) {
+      const url = URL.createObjectURL(file);
+      loadGLTF(url, file.name, () => URL.revokeObjectURL(url));
+    },
+    setWireframe(on) {
+      wireframe = on;
+      if (current) applyWire(current.object);
+    },
+    setAutoRotate(on) {
+      controls.autoRotate = on;
+    },
+    reset() {
+      camera.position.copy(HOME);
+      controls.target.set(0, 0, 0);
+    },
+    dispose() {
+      destroyed = true;
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      io.disconnect();
+      controls.dispose();
+      if (current) dispose(current.object);
+      grid.geometry.dispose();
+      grid.material.dispose();
+      envTarget.dispose();
+      pmrem.dispose();
+      renderer.dispose();
+    },
+  };
 }

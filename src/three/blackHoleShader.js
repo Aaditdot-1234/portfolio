@@ -8,6 +8,10 @@
 //  are swallowed; rays that escape sample a procedural starfield.
 //  The lensing (the disk arching over and under the shadow, the
 //  photon ring, the Einstein ring of stars) all emerges from that.
+//
+//  uDive (0 → 1) fades in the view from *inside* the horizon: every
+//  path leads inward, so the outside universe collapses into a single
+//  point of light ahead, with infalling light streaming toward it.
 // ============================================================
 
 export const vertexShader = /* glsl */ `
@@ -27,6 +31,7 @@ export const fragmentShader = /* glsl */ `
   uniform float uFov;
   uniform float uRoll;
   uniform int   uSteps;
+  uniform float uDive;      // 0 outside the horizon → 1 once the camera has crossed it
 
   // ---------- hashing / noise ----------
   float hash12(vec2 p) {
@@ -122,6 +127,29 @@ export const fragmentShader = /* glsl */ `
     return vec4(col * intensity * (0.35 + dens), alpha);
   }
 
+  // ---------- beyond the event horizon ----------
+  // Total darkness, one point of light at the end, and faint lanes of
+  // blueshifted light rushing inward toward it.
+  vec3 singularity(vec2 uv) {
+    float r = length(uv);
+    float grow = smoothstep(0.0, 1.0, uDive);
+
+    float pulse = 1.0 + 0.08 * sin(uTime * 1.3);
+    float core = 0.0006 * grow * pulse / (r * r + 0.00015);
+    float halo = 0.09 * grow * exp(-r * 6.0);
+    vec3 col = vec3(1.0, 0.95, 0.88) * (core + halo);
+
+    float a = atan(uv.y, uv.x) / 6.2831853 + 0.5;
+    float lanePos = a * 90.0;
+    float h = hash12(vec2(floor(lanePos), 17.0));
+    float thin = pow(1.0 - abs(fract(lanePos) - 0.5) * 2.0, 8.0);
+    float f = fract(-log(r + 1e-4) * 0.8 - uTime * (0.25 + h * 0.4) + h * 7.0);
+    float dash = smoothstep(0.0, 0.08, f) * smoothstep(0.4, 0.08, f);
+    float streak = step(0.8, h) * thin * dash * smoothstep(0.02, 0.15, r) * exp(-r * 2.2);
+    col += vec3(0.7, 0.82, 1.0) * streak * 0.5 * grow;
+    return col;
+  }
+
   void main() {
     vec2 uv = (gl_FragCoord.xy - 0.5 * uRes) / uRes.y - uShift;
     float cr = cos(uRoll), sr = sin(uRoll);
@@ -143,7 +171,7 @@ export const fragmentShader = /* glsl */ `
     float glow = 0.0;
 
     for (int i = 0; i < 400; i++) {
-      if (i >= uSteps) break;
+      if (i >= uSteps || uDive > 0.999) break;   // fully inside: skip the ray-march
       float r2 = dot(pos, pos);
       float r = sqrt(r2);
       float dt = clamp(0.065 * r * min(r / 3.0, 1.0), 0.03, 1.5);
@@ -172,6 +200,7 @@ export const fragmentShader = /* glsl */ `
 
     if (escaped) col += (1.0 - alpha) * background(normalize(vel));
     if (escaped) col += (1.0 - alpha) * vec3(1.0, 0.6, 0.3) * glow * 0.03;
+    if (uDive > 0.0) col = mix(col, singularity(uv), uDive);
 
     gl_FragColor = vec4(col, 1.0);
   }

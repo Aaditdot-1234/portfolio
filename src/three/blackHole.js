@@ -3,12 +3,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { vertexShader, fragmentShader } from "./blackhole.js";
-
-const canvas = document.getElementById("space");
-const loader = document.getElementById("loader");
-const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-const isMobile = matchMedia("(max-width: 900px)").matches;
+import { vertexShader, fragmentShader } from "./blackHoleShader.js";
 
 // ------------------------------------------------------------
 //  Camera keyframes — one per <section>, in order.
@@ -16,34 +11,48 @@ const isMobile = matchMedia("(max-width: 900px)").matches;
 //  elev: angle above the disk plane (radians)
 //  azim: orbit angle around the hole (radians)
 //  shift: where on screen the hole sits (x, y), fov: zoom
+//  The last key sits *inside* the horizon (dist < 1): scrolling into the
+//  Singularity section drops the camera through the event horizon.
 // ------------------------------------------------------------
-const KEYS = [
-  { dist: 24,  elev: 0.075, azim: 0.0, shift: [0.26, 0.08],  fov: 0.9,  roll: -0.06 }, // hero
-  { dist: 15,  elev: 0.28,  azim: 0.7, shift: [0.36, 0.0],   fov: 0.95, roll: 0.04 },  // about (panel left)
-  { dist: 13,  elev: 0.2,   azim: 1.2, shift: [-0.36, 0.02], fov: 0.95, roll: 0.06 },  // experience (panel right)
-  { dist: 30,  elev: 0.55,  azim: 1.9, shift: [0.0, 0.22],   fov: 0.8,  roll: 0.0 },   // projects
-  { dist: 11,  elev: 0.12,  azim: 2.6, shift: [0.36, 0.0],   fov: 1.0,  roll: -0.1 },  // skills (panel left)
-  { dist: 6.5, elev: 0.04,  azim: 3.2, shift: [0.0, 0.02],   fov: 1.15, roll: 0.0 },   // contact
+export const KEYS = [
+  { dist: 24,   elev: 0.075, azim: 0.0, shift: [0.26, 0.08],  fov: 0.9,  roll: -0.06 }, // hero
+  { dist: 15,   elev: 0.28,  azim: 0.7, shift: [0.36, 0.0],   fov: 0.95, roll: 0.04 },  // about (panel left)
+  { dist: 13,   elev: 0.2,   azim: 1.2, shift: [-0.36, 0.02], fov: 0.95, roll: 0.06 },  // experience (panel right)
+  { dist: 30,   elev: 0.55,  azim: 1.9, shift: [0.0, 0.22],   fov: 0.8,  roll: 0.0 },   // projects
+  { dist: 11,   elev: 0.12,  azim: 2.6, shift: [0.36, 0.0],   fov: 1.0,  roll: -0.1 },  // skills (panel left)
+  { dist: 0.55, elev: 0.04,  azim: 3.2, shift: [0.0, 0.3],    fov: 1.15, roll: 0.0 },   // contact — past the horizon; the light sits above the heading
 ];
 
-// ---------- renderer ----------
-let renderer;
-try {
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
-} catch (e) {
-  console.warn("WebGL unavailable — showing static fallback.", e);
-  finishLoading();
-}
+const smoothstep = (e0, e1, x) => {
+  const t = Math.min(Math.max((x - e0) / (e1 - e0), 0), 1);
+  return t * t * (3 - 2 * t);
+};
 
-if (renderer) {
+/**
+ * Mounts the ray-traced black hole on `canvas`.
+ * `hud` holds DOM nodes updated every frame: { r, dilation, local, earth, side, progress }.
+ * Returns a cleanup function.
+ */
+export function createBlackHole({ canvas, hud, onReady }) {
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const isMobile = matchMedia("(max-width: 900px)").matches;
+
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
+  } catch (e) {
+    console.warn("WebGL unavailable — showing static fallback.", e);
+    onReady();
+    return () => {};
+  }
+
   // If the GPU drops the context (driver reset, too-slow frame), ask the
   // browser to give it back — three.js rebuilds its state on restore.
-  canvas.addEventListener("webglcontextlost", (e) => { e.preventDefault(); console.warn("WebGL context lost"); });
-  canvas.addEventListener("webglcontextrestored", () => console.warn("WebGL context restored"));
-  init();
-}
+  const onLost = (e) => { e.preventDefault(); console.warn("WebGL context lost"); };
+  const onRestored = () => console.warn("WebGL context restored");
+  canvas.addEventListener("webglcontextlost", onLost);
+  canvas.addEventListener("webglcontextrestored", onRestored);
 
-function init() {
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -58,12 +67,12 @@ function init() {
     uFov: { value: 0.85 },
     uRoll: { value: 0 },
     uSteps: { value: isMobile ? 160 : 260 },
+    uDive: { value: 0 },
   };
 
-  const quad = new THREE.Mesh(
-    new THREE.PlaneGeometry(2, 2),
-    new THREE.ShaderMaterial({ vertexShader, fragmentShader, uniforms, depthWrite: false, depthTest: false })
-  );
+  const geometry = new THREE.PlaneGeometry(2, 2);
+  const material = new THREE.ShaderMaterial({ vertexShader, fragmentShader, uniforms, depthWrite: false, depthTest: false });
+  const quad = new THREE.Mesh(geometry, material);
   quad.frustumCulled = false;
   scene.add(quad);
 
@@ -100,6 +109,7 @@ function init() {
   }
 
   function scrollIndex() {
+    if (!centers.length) return 0;
     const mid = window.scrollY + window.innerHeight / 2;
     if (mid <= centers[0]) return 0;
     for (let i = 0; i < centers.length - 1; i++) {
@@ -115,7 +125,9 @@ function init() {
     const t = ease(Math.min(Math.max(f - i, 0), 1));
     const a = KEYS[i], b = KEYS[i + 1];
     return {
-      dist: lerp(a.dist, b.dist, t),
+      // distance interpolates logarithmically so the final plunge
+      // through the horizon is spread across the scroll, not crammed at the end
+      dist: Math.exp(lerp(Math.log(a.dist), Math.log(b.dist), t)),
       elev: lerp(a.elev, b.elev, t),
       azim: lerp(a.azim, b.azim, t),
       sx: lerp(a.shift[0], b.shift[0], t),
@@ -127,18 +139,13 @@ function init() {
 
   const cur = { ...keyAt(0) };
   const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
-  window.addEventListener("pointermove", (e) => {
+  const onPointer = (e) => {
     mouse.tx = (e.clientX / window.innerWidth) * 2 - 1;
     mouse.ty = (e.clientY / window.innerHeight) * 2 - 1;
-  });
+  };
+  window.addEventListener("pointermove", onPointer);
 
   // ---------- HUD ----------
-  const hudR = document.getElementById("hud-r");
-  const hudDil = document.getElementById("hud-dilation");
-  const hudLocal = document.getElementById("hud-local");
-  const hudEarth = document.getElementById("hud-earth");
-  const progressBar = document.getElementById("progress-bar");
-  const hudSide = document.querySelector(".hud-side");
   let tLocal = 0, tEarth = 0;
   const fmt = (s) => {
     s = Math.floor(s);
@@ -149,7 +156,7 @@ function init() {
 
   // ---------- loop ----------
   const clock = new THREE.Clock();
-  let frames = 0, acc = 0, firstFrame = true;
+  let frames = 0, acc = 0, firstFrame = true, raf = 0;
 
   function frame() {
     const dt = Math.min(clock.getDelta(), 0.1);
@@ -158,7 +165,7 @@ function init() {
     // camera target from scroll
     const f = scrollIndex();
     const k = keyAt(f);
-    hudSide.classList.toggle("hidden", f > 1.4 && f < 4.6); // stay clear of the content panels
+    hud.side.classList.toggle("hidden", f > 1.4 && f < 4.6); // stay clear of the content panels
     const damp = 1 - Math.exp(-dt * 3.2);
     for (const key in k) cur[key] += (k[key] - cur[key]) * damp;
     mouse.x += (mouse.tx - mouse.x) * damp;
@@ -177,19 +184,22 @@ function init() {
     uniforms.uShift.value.set(cur.sx * shiftScale, cur.sy);
     uniforms.uFov.value = cur.fov;
     uniforms.uRoll.value = cur.roll;
+    uniforms.uDive.value = smoothstep(1.3, 0.75, d); // fades in as the camera crosses r_s = 1
 
     composer.render();
 
-    // HUD — gravitational time dilation for a static observer: γ = 1/√(1 − r_s/r)
-    const gamma = 1 / Math.sqrt(1 - 1 / d);
+    // HUD — gravitational time dilation for a static observer: γ = 1/√(1 − r_s/r).
+    // Inside the horizon no static observer exists, so the clocks read ∞.
+    const inside = d <= 1.0005;
+    const gamma = inside ? Infinity : 1 / Math.sqrt(1 - 1 / d);
     tLocal += dt;
-    tEarth += dt * gamma * 3600 * 0.25; // exaggerated for fun: every local second ≈ 15 Earth minutes × γ
-    hudR.textContent = d.toFixed(2);
-    hudDil.textContent = gamma.toFixed(4) + "×";
-    hudLocal.textContent = fmt(tLocal);
-    hudEarth.textContent = fmt(tEarth);
+    if (!inside) tEarth += dt * gamma * 3600 * 0.25; // exaggerated for fun: every local second ≈ 15 Earth minutes × γ
+    hud.r.textContent = d.toFixed(2);
+    hud.dilation.textContent = inside ? "∞" : gamma.toFixed(4) + "×";
+    hud.local.textContent = fmt(tLocal);
+    hud.earth.textContent = inside ? "∞" : fmt(tEarth);
     const max = document.documentElement.scrollHeight - window.innerHeight;
-    progressBar.style.height = (max > 0 ? (window.scrollY / max) * 100 : 0) + "%";
+    hud.progress.style.height = (max > 0 ? (window.scrollY / max) * 100 : 0) + "%";
 
     // adaptive quality
     acc += dt; frames++;
@@ -200,62 +210,32 @@ function init() {
       acc = 0; frames = 0;
     }
 
-    if (firstFrame) { firstFrame = false; finishLoading(); }
-    requestAnimationFrame(frame);
+    if (firstFrame) { firstFrame = false; onReady(); }
+    raf = requestAnimationFrame(frame);
   }
 
   window.addEventListener("resize", resize);
   window.addEventListener("load", measureSections);
+  // re-measure when content reflows (web fonts arriving, images, etc.)
+  const ro = new ResizeObserver(measureSections);
+  const main = document.querySelector("main");
+  if (main) ro.observe(main);
+
   resize();
-  requestAnimationFrame(frame);
-}
+  raf = requestAnimationFrame(frame);
 
-function finishLoading() {
-  setTimeout(() => loader.classList.add("done"), 400);
-}
-
-// ------------------------------------------------------------
-//  UI: reveals, nav highlighting, counters, skill bars
-// ------------------------------------------------------------
-document.getElementById("year").textContent = new Date().getFullYear();
-
-const revealObs = new IntersectionObserver(
-  (entries) => {
-    for (const e of entries) {
-      if (!e.isIntersecting) continue;
-      e.target.classList.add("in");
-      e.target.querySelectorAll("[data-count]").forEach(countUp);
-      revealObs.unobserve(e.target);
-    }
-  },
-  { threshold: 0.15 }
-);
-document.querySelectorAll(".reveal").forEach((el) => revealObs.observe(el));
-
-function countUp(el) {
-  const target = +el.dataset.count;
-  const decimals = +(el.dataset.decimals || 0);
-  const suffix = el.dataset.suffix || "";
-  const start = performance.now();
-  const dur = 1600;
-  const step = (now) => {
-    const t = Math.min((now - start) / dur, 1);
-    const v = target * (1 - Math.pow(1 - t, 3));
-    el.innerHTML = v.toLocaleString("en-IN", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) +
-      (suffix ? `<em>${suffix}</em>` : "");
-    if (t < 1) requestAnimationFrame(step);
+  return () => {
+    cancelAnimationFrame(raf);
+    ro.disconnect();
+    window.removeEventListener("resize", resize);
+    window.removeEventListener("load", measureSections);
+    window.removeEventListener("pointermove", onPointer);
+    canvas.removeEventListener("webglcontextlost", onLost);
+    canvas.removeEventListener("webglcontextrestored", onRestored);
+    geometry.dispose();
+    material.dispose();
+    bloom.dispose();
+    composer.dispose();
+    renderer.dispose();
   };
-  requestAnimationFrame(step);
 }
-
-const navLinks = [...document.querySelectorAll("[data-nav]")];
-const navObs = new IntersectionObserver(
-  (entries) => {
-    for (const e of entries) {
-      if (!e.isIntersecting) continue;
-      navLinks.forEach((a) => a.classList.toggle("active", a.getAttribute("href") === "#" + e.target.id));
-    }
-  },
-  { rootMargin: "-45% 0px -45% 0px" }
-);
-document.querySelectorAll("main > section").forEach((s) => navObs.observe(s));

@@ -5,6 +5,7 @@
 //  placeholder : which procedural 3D visual the viewer shows
 //                (neural | voice | network | planet)
 //  model       : optional path to a .glb that replaces the visual
+//                (put the file in public/models/ and use "/models/x.glb")
 // ============================================================
 
 const GITHUB = "https://github.com/Aaditdot-1234";
@@ -76,43 +77,3 @@ export const certifications = [
   ["Wayspire", "Prompt Engineering"],
   ["RAIT ACM", "AI meets Quantum Seminar"],
 ];
-
-// ---------- render cards, skills, certifications ----------
-const grid = document.getElementById("projects");
-if (grid) {
-  grid.innerHTML = projects
-    .map((p, i) => {
-      const bg = `radial-gradient(circle at 50% 50%, hsl(${p.hue} 90% 70% / .9) 0%, hsl(${p.hue} 80% 35% / .6) 22%, #000 60%)`;
-      return `
-      <button class="card reveal" data-index="${i}" style="--thumb:${bg}">
-        <div class="thumb"><div class="ring"></div></div>
-        <div>
-          <div class="meta mono">${p.category} · ${p.year}</div>
-          <h3>${p.title}</h3>
-          <p>${p.description}</p>
-          <div class="tags">${p.tags.map((t) => `<span>${t}</span>`).join("")}</div>
-        </div>
-      </button>`;
-    })
-    .join("");
-}
-
-const skillsEl = document.getElementById("skills-list");
-if (skillsEl) {
-  skillsEl.innerHTML = skillGroups
-    .map(
-      (g) => `
-      <div class="skill-group">
-        <span class="group-name mono">${g.name}</span>
-        <div class="chips">${g.items.map((s) => `<span>${s}</span>`).join("")}</div>
-      </div>`
-    )
-    .join("");
-}
-
-const certsEl = document.getElementById("certs-list");
-if (certsEl) {
-  certsEl.innerHTML = certifications
-    .map(([by, what]) => `<li><span class="mono">${by}</span>${what}</li>`)
-    .join("");
-}
