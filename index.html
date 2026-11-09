@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Aadit Chaurasia — Software Developer</title>
+  <meta name="description" content="Aadit Chaurasia — software developer building scalable backends, responsive frontends and AI-driven products. B.Tech CSE (AI & Data Science)." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2713%27 fill=%27none%27 stroke=%27%23ffb36b%27 stroke-width=%273%27/%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%277%27/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/style.css" />
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- ===== Loader ===== -->
+  <div id="loader">
+    <div class="loader-ring"></div>
+    <p class="mono">Computing geodesics<span class="dots"></span></p>
+  </div>
+
+  <!-- ===== Black hole background ===== -->
+  <canvas id="space"></canvas>
+  <div class="vignette"></div>
+  <div class="grain"></div>
+
+  <!-- ===== HUD ===== -->
+  <header class="hud-top">
+    <a href="#hero" class="logo mono">AC<span>/</span>DEV</a>
+    <nav>
+      <a href="#about" data-nav data-short="About">01 Horizon</a>
+      <a href="#experience" data-nav data-short="Exp">02 Trajectory</a>
+      <a href="#work" data-nav data-short="Work">03 Accretion</a>
+      <a href="#skills" data-nav data-short="Skills">04 Orbit</a>
+      <a href="#contact" data-nav data-short="Contact">05 Singularity</a>
+    </nav>
+  </header>
+
+  <aside class="hud-side mono" aria-hidden="true">
+    <div><span class="label">R</span><span id="hud-r">—</span><span class="unit">r<sub>s</sub></span></div>
+    <div><span class="label">γ</span><span id="hud-dilation">—</span><span class="unit">dilation</span></div>
+    <div><span class="label">T<sub>local</sub></span><span id="hud-local">00:00:00</span></div>
+    <div><span class="label">T<sub>earth</sub></span><span id="hud-earth">00:00:00</span></div>
+  </aside>
+
+  <div class="progress" aria-hidden="true"><div id="progress-bar"></div></div>
+
+  <main>
+    <!-- ===== Hero ===== -->
+    <section id="hero" class="section hero">
+      <p class="eyebrow mono">// SOFTWARE DEVELOPER · AI &amp; DATA SCIENCE · MUMBAI</p>
+      <h1 class="title">
+        <span class="line">AADIT</span>
+        <span class="line outline">CHAURASIA</span>
+      </h1>
+      <p class="lede">I build scalable backends, responsive interfaces and AI systems
+        that find signal in noisy data.</p>
+      <a href="#about" class="scroll-cue mono">
+        <span>Cross the horizon</span>
+        <span class="cue-line"></span>
+      </a>
+    </section>
+
+    <!-- ===== About ===== -->
+    <section id="about" class="section left">
+      <div class="panel reveal">
+        <p class="chapter mono">01 — Event Horizon</p>
+        <h2>Engineer by trade, data scientist by training.</h2>
+        <p>
+          I'm a <strong>Junior Software Developer at a company</strong>, where I work on
+          shipping ERP software: <strong>Node.js</strong> and <strong>MongoDB</strong> services,
+          <strong>RabbitMQ</strong> messaging, REST APIs and an <strong>Angular</strong> frontend.
+        </p>
+        <p>
+          I'm finishing a B.Tech in Computer Science, majoring in AI &amp; Data Science,
+          at Ramrao Adik Institute of Technology. Outside work I research how chatbots
+          and psychometrics can help detect mental-health risk earlier.
+        </p>
+        <p class="aside mono">Off-screen: sudoku, sports, gaming, mathematics, teaching.</p>
+        <div class="stats">
+          <div><span class="num" data-count="9.5" data-decimals="1">0</span><span class="mono">CGPA</span></div>
+          <div><span class="num" data-count="28000" data-suffix="+">0</span><span class="mono">records analysed</span></div>
+          <div><span class="num" data-count="500" data-suffix="+">0</span><span class="mono">hackathon sessions</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Experience ===== -->
+    <section id="experience" class="section right">
+      <div class="panel reveal">
+        <p class="chapter mono">02 — Trajectory</p>
+        <h2>Experience</h2>
+        <ol class="timeline">
+          <li>
+            <div class="when mono">Aug 2025 — Present</div>
+            <h3>Junior Software Developer <span>· Development Services</span></h3>
+            <p class="where mono">Shipping ERP · Juinagar · On-site · Intern → Full-time</p>
+            <ul>
+              <li>Build and maintain scalable backend services with Node.js and MongoDB.</li>
+              <li>Introduced RabbitMQ for asynchronous inter-service messaging, improving reliability.</li>
+              <li>Design and optimise RESTful APIs between frontend and backend.</li>
+              <li>Build responsive, mobile-first Angular interfaces.</li>
+            </ul>
+          </li>
+          <li>
+            <div class="when mono">Aug 2024 — Present</div>
+            <h3>Researcher <span>· Chatbot + Psychometrics</span></h3>
+            <p class="where mono">MindFirst project</p>
+            <ul>
+              <li>Designed the statistical analysis that showed triage accuracy gains were real, not chance (p ≈ 0.000089).</li>
+            </ul>
+          </li>
+          <li>
+            <div class="when mono">Oct 2024</div>
+            <h3>Team Lead <span>· Appwrite Hackathon</span></h3>
+            <ul>
+              <li>Led a team of four to ship a carbon-footprint calculator that handled 500+ sessions in 2 days.</li>
+            </ul>
+          </li>
+          <li>
+            <div class="when mono">2022 — 2026</div>
+            <h3>B.Tech, Computer Science <span>· RAIT, D. Y. Patil University</span></h3>
+            <p class="where mono">Major: AI &amp; Data Science · CGPA 9.5</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ===== Work ===== -->
+    <section id="work" class="section wide">
+      <div class="section-head reveal">
+        <p class="chapter mono">03 — Accretion Disk</p>
+        <h2>Selected projects</h2>
+        <p class="muted">Click a project to load its 3D visual. Drag to orbit, scroll to zoom.</p>
+      </div>
+
+      <div class="work-layout">
+        <div class="viewer reveal" id="viewer">
+          <canvas id="viewer-canvas"></canvas>
+          <div class="viewer-hud mono">
+            <span id="viewer-title">Loading…</span>
+            <div class="viewer-actions">
+              <button data-action="wire" title="Toggle wireframe">Wire</button>
+              <button data-action="rotate" title="Toggle auto-rotate" class="on">Spin</button>
+              <button data-action="reset" title="Reset camera">Reset</button>
+            </div>
+          </div>
+          <div class="drop-hint mono">Drop .glb here</div>
+          <a class="viewer-link mono" id="viewer-link" href="#" target="_blank" rel="noopener" hidden>View code ↗</a>
+          <div class="viewer-stats mono" id="viewer-stats"></div>
+        </div>
+
+        <div class="projects" id="projects"><!-- filled by js/projects.js --></div>
+      </div>
+    </section>
+
+    <!-- ===== Skills ===== -->
+    <section id="skills" class="section left">
+      <div class="panel panel-wide reveal">
+        <p class="chapter mono">04 — Stable Orbit</p>
+        <h2>Toolkit</h2>
+        <div class="skill-groups" id="skills-list"><!-- filled by js/projects.js --></div>
+        <h3 class="sub mono">Certifications</h3>
+        <ul class="certs" id="certs-list"><!-- filled by js/projects.js --></ul>
+      </div>
+    </section>
+
+    <!-- ===== Contact ===== -->
+    <section id="contact" class="section contact">
+      <div class="reveal">
+        <p class="chapter mono">05 — Singularity</p>
+        <h2 class="big">Let's build something<br /><span class="outline">massive.</span></h2>
+        <a class="email" href="mailto:kumud2196@gmail.com">kumud2196@gmail.com</a>
+        <div class="socials mono">
+          <a href="https://github.com/Aaditdot-1234" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://www.linkedin.com/in/aadit-chaurasia" target="_blank" rel="noopener">LinkedIn</a>
+          <a href="assets/Aadit-Chaurasia-Resume.pdf" target="_blank" rel="noopener">Résumé</a>
+        </div>
+      </div>
+      <footer class="mono">© <span id="year"></span> Aadit Chaurasia. Black hole ray-traced in real time.</footer>
+    </section>
+  </main>
+
+  <script type="module" src="js/projects.js"></script>
+  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/viewer.js"></script>
+</body>
+</html>
